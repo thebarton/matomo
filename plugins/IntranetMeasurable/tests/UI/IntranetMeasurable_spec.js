@@ -21,6 +21,7 @@ describe("IntranetMeasurable", function () {
     it("should show intranet selection", async function () {
         await page.goto(url);
         await (await page.jQuery('.SitesManager .addSite:first')).click();
+        await page.waitFor(250);
 
         pageWrap = await page.$('.modal.open');
         expect(await pageWrap.screenshot()).to.matchImage('add_new_dialog');
