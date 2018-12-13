@@ -17,15 +17,15 @@ describe("TwoFactorAuth", function () {
         logoutUrl = '?module=Login&action=logout&period=day&date=yesterday';
 
 
-    function selectModalButton(page, button)
+    async function selectModalButton(button)
     {
-        page.click('.modal.open .modal-footer a:contains('+button+')');
+        await page.click('.modal.open .modal-footer a:contains('+button+')');
     }
 
-    function loginUser(page, username, doAuth)
+    async function loginUser(username, doAuth)
     {
         // make sure to log out previous session
-        page.load(logoutUrl);
+        await page.goto(logoutUrl);
 
         if (typeof doAuth === 'undefined') {
             doAuth = true;
@@ -34,8 +34,8 @@ describe("TwoFactorAuth", function () {
         if (doAuth) {
             logMeUrl += '&authCode=123456'; // we make sure in test config this code always works
         }
-        page.wait(1000);
-        page.load(logMeUrl);
+        await page.waitFor(1000);
+        await page.goto(logMeUrl);
     }
 
     function requireTwoFa() {
@@ -68,166 +68,168 @@ describe("TwoFactorAuth", function () {
         testEnvironment.save();
     });
 
-    function confirmPassword(page)
+    async function confirmPassword()
     {
-        page.wait(1000);
-        page.sendKeys('.confirmPasswordForm #login_form_password', '123abcDk3_l3');
-        page.click('.confirmPasswordForm #login_form_submit');
+        await page.waitFor(1000);
+        await page.type('.confirmPasswordForm #login_form_password', '123abcDk3_l3');
+        await page.click('.confirmPasswordForm #login_form_submit');
     }
 
-    function captureScreen(done, screenshotName, test, selector) {
+    async function captureScreen(screenshotName, test, selector) {
         if (!selector) {
             selector = '.loginSection,#content,#notificationContainer';
         }
 
-        expect.screenshot(screenshotName).to.be.captureSelector(selector, test, done);
+        await test();
+
+        expect(await page.screenshotSelector(selector)).to.matchImage(screenshotName);
     }
 
-    function captureUserSettings(done, screenshotName, test, selector) {
-        captureScreen(done, screenshotName, test, '.userSettings2FA');
+    async function captureUserSettings(screenshotName, test) {
+        await captureScreen(screenshotName, test, '.userSettings2FA');
     }
 
-    function captureModal(done, screenshotName, test, selector) {
-        captureScreen(done, screenshotName, test, '.modal.open');
+    async function captureModal(screenshotName, test) {
+        await captureScreen(screenshotName, test, '.modal.open');
     }
 
-    it('a user with 2fa can open the widgetized view by token without needing to verify', function (done) {
-        captureScreen(done, 'widgetized_no_verify', function (page) {
-            page.load('?module=Widgetize&action=iframe&moduleToWidgetize=Actions&actionToWidgetize=getPageUrls&date=2018-03-04&token_auth=c4ca4238a0b923820dcc509a6f75849b&' + generalParams);
+    it('a user with 2fa can open the widgetized view by token without needing to verify', async function () {
+        await captureScreen('widgetized_no_verify', async function () {
+            await page.goto('?module=Widgetize&action=iframe&moduleToWidgetize=Actions&actionToWidgetize=getPageUrls&date=2018-03-04&token_auth=c4ca4238a0b923820dcc509a6f75849b&' + generalParams);
         });
     });
 
-    it('when logging in through logme and not providing auth code it should show auth code screen', function (done) {
-        captureScreen(done, 'logme_not_verified', function (page) {
-            loginUser(page, 'with2FA', false);
+    it('when logging in through logme and not providing auth code it should show auth code screen', async function () {
+        await captureScreen('logme_not_verified', async function () {
+            await loginUser('with2FA', false);
         });
     });
 
-    it('when logging in and providing wrong code an error is shown', function (done) {
-        captureScreen(done, 'logme_not_verified_wrong_code', function (page) {
-            page.sendKeys('.loginTwoFaForm #login_form_authcode', '555555');
-            page.click('.loginTwoFaForm #login_form_submit');
+    it('when logging in and providing wrong code an error is shown', async function () {
+        await await captureScreen('logme_not_verified_wrong_code', async function () {
+            await page.type('.loginTwoFaForm #login_form_authcode', '555555');
+            await page.click('.loginTwoFaForm #login_form_submit');
         });
     });
 
-    it('when logging in through logme and verifying screen it works to access ui', function (done) {
-        captureScreen(done, 'logme_verified', function (page) {
-            page.sendKeys('.loginTwoFaForm #login_form_authcode', '123456');
-            page.click('.loginTwoFaForm #login_form_submit');
+    it('when logging in through logme and verifying screen it works to access ui', async function () {
+        await captureScreen('logme_verified', async function () {
+            await page.type('.loginTwoFaForm #login_form_authcode', '123456');
+            await page.click('.loginTwoFaForm #login_form_submit');
         });
     });
 
-    it('should show user settings when two-fa enabled', function (done) {
-        captureUserSettings(done, 'usersettings_twofa_enabled', function (page) {
-            loginUser(page, 'with2FA');
-            page.load(userSettings);
+    it('should show user settings when two-fa enabled', async function () {
+        await captureUserSettings('usersettings_twofa_enabled', async function () {
+            await loginUser('with2FA');
+            await page.goto(userSettings);
         });
     });
 
-    it('should be possible to show recovery codes step1 authentication', function (done) {
-        captureScreen(done, 'show_recovery_codes_step1', function (page) {
-            page.click('.showRecoveryCodesLink');
+    it('should be possible to show recovery codes step1 authentication', async function () {
+        await captureScreen('show_recovery_codes_step1', async function () {
+            await page.click('.showRecoveryCodesLink');
         });
     });
-    it('should be possible to show recovery codes step2 done', function (done) {
-        captureScreen(done, 'show_recovery_codes_step2', function (page) {
-            confirmPassword(page);
+    it('should be possible to show recovery codes step2 done', async function () {
+        await captureScreen('show_recovery_codes_step2', async function () {
+            await confirmPassword();
         });
     });
 
-    it('should show user settings when two-fa enabled', function (done) {
-        captureUserSettings(done, 'usersettings_twofa_enabled_required', function (page) {
+    it('should show user settings when two-fa enabled', async function () {
+        await captureUserSettings('usersettings_twofa_enabled_required', async function () {
             requireTwoFa();
-            page.load(userSettings);
+            await page.goto(userSettings);
         });
     });
 
-    it('should be possible to disable two factor', function (done) {
-        captureModal(done, 'usersettings_twofa_disable_step1', function (page) {
-            loginUser(page, 'with2FADisable');
-            page.load(userSettings);
-            page.click('.disable2FaLink');
+    it('should be possible to disable two factor', async function () {
+        await captureModal('usersettings_twofa_disable_step1', async function () {
+            await loginUser('with2FADisable');
+            await page.goto(userSettings);
+            await page.click('.disable2FaLink');
         });
     });
 
-    it('should be possible to disable two factor step 2 confirmed', function (done) {
-        captureScreen(done, 'usersettings_twofa_disable_step2', function (page) {
-            selectModalButton(page, 'Yes');
+    it('should be possible to disable two factor step 2 confirmed', async function () {
+        await captureScreen('usersettings_twofa_disable_step2', async function () {
+            await selectModalButton('Yes');
         });
     });
 
-    it('should be possible to disable two factor step 3 verified', function (done) {
-        captureUserSettings(done, 'usersettings_twofa_disable_step3', function (page) {
-            confirmPassword(page);
+    it('should be possible to disable two factor step 3 verified', async function () {
+        await captureUserSettings('usersettings_twofa_disable_step3', async function () {
+            await confirmPassword();
         });
     });
 
-    it('should show setup screen - step 1', function (done) {
-        captureScreen(done, 'twofa_setup_step1', function (page) {
-            loginUser(page, 'without2FA');
-            page.load(userSettings);
-            page.click('.enable2FaLink');
-            confirmPassword(page);
+    it('should show setup screen - step 1', async function () {
+        await captureScreen('twofa_setup_step1', async function () {
+            await loginUser('without2FA');
+            await page.goto(userSettings);
+            await page.click('.enable2FaLink');
+            await confirmPassword();
         });
     });
 
-    it('should move to second step in setup - step 2', function (done) {
-        captureScreen(done, 'twofa_setup_step2', function (page) {
-            page.click('.setupTwoFactorAuthentication .backupRecoveryCode:first');
-            page.click('.setupTwoFactorAuthentication .goToStep2');
-            page.evaluate(function () {
+    it('should move to second step in setup - step 2', async function () {
+        await captureScreen('twofa_setup_step2', async function () {
+            await page.click('.setupTwoFactorAuthentication .backupRecoveryCode:first');
+            await page.click('.setupTwoFactorAuthentication .goToStep2');
+            await page.evaluate(function () {
                 $('#qrcode').hide();
             });
         });
     });
 
-    it('should move to third step in setup - step 3', function (done) {
-        captureScreen(done, 'twofa_setup_step3', function (page) {
-            page.click('.setupTwoFactorAuthentication .goToStep3');
+    it('should move to third step in setup - step 3', async function () {
+        await captureScreen('twofa_setup_step3', async function () {
+            await page.click('.setupTwoFactorAuthentication .goToStep3');
         });
     });
 
-    it('should move to third step in setup - step 4 confirm', function (done) {
-        captureScreen(done, 'twofa_setup_step4', function (page) {
+    it('should move to third step in setup - step 4 confirm', async function () {
+        await captureScreen('twofa_setup_step4', async function () {
             fakeCorrectAuthCode();
-            page.sendKeys('.setupConfirmAuthCodeForm input[type=text]', '123458');
-            page.evaluate(function () {
+            await page.type('.setupConfirmAuthCodeForm input[type=text]', '123458');
+            await page.evaluate(function () {
                 $('.setupConfirmAuthCodeForm input[type=text]').change();
             });
-            page.evaluate(function () {
+            await page.evaluate(function () {
                 $('.setupConfirmAuthCodeForm .confirmAuthCode').click();
             });
         });
     });
 
-    it('should force user to setup 2fa when not set up yet but enforced', function (done) {
-        captureScreen(done, 'twofa_forced_step1', function (page) {
+    it('should force user to setup 2fa when not set up yet but enforced', async function () {
+        await captureScreen('twofa_forced_step1', async function () {
             requireTwoFa();
-            loginUser(page, 'no2FA', false);
+            await loginUser('no2FA', false);
         });
     });
 
-    it('should force user to setup 2fa when not set up yet but enforced step 2', function (done) {
-        captureScreen(done, 'twofa_forced_step2', function (page) {
-            page.click('.setupTwoFactorAuthentication .backupRecoveryCode:first');
-            page.click('.setupTwoFactorAuthentication .goToStep2');
+    it('should force user to setup 2fa when not set up yet but enforced step 2', async function () {
+        await captureScreen('twofa_forced_step2', async function () {
+            await page.click('.setupTwoFactorAuthentication .backupRecoveryCode:first');
+            await page.click('.setupTwoFactorAuthentication .goToStep2');
         });
     });
 
-    it('should force user to setup 2fa when not set up yet but enforced step 3', function (done) {
-        captureScreen(done, 'twofa_forced_step3', function (page) {
-            page.click('.setupTwoFactorAuthentication .goToStep3');
+    it('should force user to setup 2fa when not set up yet but enforced step 3', async function () {
+        await captureScreen('twofa_forced_step3', async function () {
+            await page.click('.setupTwoFactorAuthentication .goToStep3');
         });
     });
-    it('should force user to setup 2fa when not set up yet but enforced confirm code', function (done) {
-        captureScreen(done, 'twofa_forced_step4', function (page) {
+    it('should force user to setup 2fa when not set up yet but enforced confirm code', async function () {
+        await captureScreen('twofa_forced_step4', async function () {
             requireTwoFa();
             fakeCorrectAuthCode();
-            page.sendKeys('.setupConfirmAuthCodeForm input[type=text]', '123458');
-            page.evaluate(function () {
+            await page.type('.setupConfirmAuthCodeForm input[type=text]', '123458');
+            await page.evaluate(function () {
                 $('.setupConfirmAuthCodeForm input[type=text]').change();
             });
-            page.evaluate(function () {
+            await page.evaluate(function () {
                 $('.setupConfirmAuthCodeForm .confirmAuthCode').click();
             });
         });
